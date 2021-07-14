@@ -120,17 +120,18 @@ const gameState = {
     // Generate wave
     generateWave() {
       // Add the total number of customers per wave here:
-  
+      gameState.totalCustomerCount = Math.ceil(Math.random() * 10);
   
       for (let i = 0; i < gameState.totalCustomerCount; i++) {
         // Create your container below and add your customers to it below:
-  
-  
+        const customerContainer = this.add.container(gameState.cam.worldView.right + (200 * i), gameState.cam.worldView.bottom - 140);
+        gameState.customers.add(customerContainer);
         // Customer sprite randomizer
         let customerImageKey = Math.ceil(Math.random() * 5);
   
         // Draw customers here!
-  
+        const customer = this.add.sprite(0, 0, `Customer-${customerImageKey}`).setScale(0.5);
+        customerContainer.add(customer);
         
         // Fullness meter container
         customerContainer.fullnessMeter = this.add.group();
