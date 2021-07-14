@@ -7,7 +7,9 @@ const gameState = {
     gameSpeed: 3,
     currentMusic: {},
     totalWaveCount: 3,
-    countdownTimer: 1500
+    countdownTimer: 1500,
+    readyForNextOrder: true,
+    customersServedCount: 0,
   }
   
   // Gameplay scene
@@ -113,7 +115,22 @@ const gameState = {
     }
   
     update() {
-      
+      if (gameState.readyForNextOrder === true) {
+        gameState.readyForNextOrder = false;
+        gameState.customerIsReady = false;
+        gameState.currentCustomer = gameState.customers.children.entries[gameState.customersServedCount];
+        this.add.tween(
+          {
+            targets: gameState.currentCustomer,
+            duration: 1000, 
+            delay: 100, 
+            angle: 90,
+            x: gameState.player.x,
+            ease: 'Power2',
+          }
+        );
+        gameState.customerIsReady = true;
+      }    
     }
   
     /* WAVES */
@@ -121,7 +138,9 @@ const gameState = {
     generateWave() {
       // Add the total number of customers per wave here:
       gameState.totalCustomerCount = Math.ceil(Math.random() * 10);
-  
+      
+      this.updateCustomerCountText();
+
       for (let i = 0; i < gameState.totalCustomerCount; i++) {
         // Create your container below and add your customers to it below:
         const customerContainer = this.add.container(gameState.cam.worldView.right + (200 * i), gameState.cam.worldView.bottom - 140);
@@ -132,7 +151,7 @@ const gameState = {
         // Draw customers here!
         const customer = this.add.sprite(0, 0, `Customer-${customerImageKey}`).setScale(0.5);
         customerContainer.add(customer);
-        
+
         // Fullness meter container
         customerContainer.fullnessMeter = this.add.group();
   
@@ -177,5 +196,10 @@ const gameState = {
         // Hide meters
         customerContainer.meterContainer.visible = false;
       }
+    }
+
+    updateCustomerCountText() {
+      gameState.customersLeftCount = gameState.totalCustomerCount - gameState.customersServedCount;
+      gameState.customerCountText.setText(`Customers left: ${gameState.customersLeftCount}`);
     }
   }
