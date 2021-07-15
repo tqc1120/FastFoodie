@@ -236,16 +236,16 @@ const gameState = {
     // Place food with diff keys
     placeFood(food, fullnessValue) {
       if (gameState.currentMeal.children.entries.length < 3 && gameState.customerIsReady === true) {
-        let Xposition = gameState.cam.midPoint.x;
+        let Xposition = (gameState.cam.midPoint.x - 90) + gameState.currentMeal.children.entries.length * 90;
 
         if (food === 'Burger') {
-          gameState.currentMeal.create(Xposition - 90, gameState.cam.midPoint.y, 'Burger').setScale(0.5);
+          gameState.currentMeal.create(Xposition, gameState.cam.midPoint.y, 'Burger').setScale(0.5);
           
         } else if (food === 'Fries') {
           gameState.currentMeal.create(Xposition, gameState.cam.midPoint.y, 'Fries').setScale(0.5);
-          
+
         } else if (food === 'Shake') {
-          gameState.currentMeal.create(Xposition + 90, gameState.cam.midPoint.y, 'Shake').setScale(0.5);
+          gameState.currentMeal.create(Xposition, gameState.cam.midPoint.y, 'Shake').setScale(0.5);
             
         }
         
@@ -267,7 +267,6 @@ const gameState = {
           }
         }
       }
-      gameState.sfx.placeFood.play();
     }
   }
 
