@@ -111,6 +111,10 @@ const gameState = {
       // Generate wave group
       gameState.customers = this.add.group();
       this.generateWave();
+
+      // Generate meals feed to customers
+      gameState.currentMeal = this.add.group();
+      gameState.currentMeal.fullnessValue = 0;
   
     }
   
@@ -127,9 +131,13 @@ const gameState = {
             angle: 90,
             x: gameState.player.x,
             ease: 'Power2',
+            onComplete: function() {
+              gameState.customerIsReady = true;
+              gameState.currentCustomer.meterContainer.visible = true; 
+            }
           }
         );
-        gameState.customerIsReady = true;
+        
       }    
     }
   
@@ -164,11 +172,11 @@ const gameState = {
         }
   
         // Edit the meterWidth
-        let meterWidth = 200;
+        let meterWidth = customerContainer.fullnessCapacity * 10;
         customerContainer.meterContainer = this.add.container(0, customer.y + (meterWidth / 2));
         
         // Add the customerContainer.meterContainer to customerContainer
-  
+        customerContainer.add(customerContainer.meterContainer);
   
         // Add meter base
         customerContainer.meterBase = this.add.rectangle(-130, customer.y, meterWidth, 33, 0x707070).setOrigin(0);
@@ -185,7 +193,7 @@ const gameState = {
         customerContainer.fullnessMeterBlocks = [];
   
         // Create fullness meter blocks
-        for (let j = 0; j < 1; j++) {
+        for (let j = 0; j < customerContainer.fullnessCapacity; j++) {
           customerContainer.fullnessMeterBlocks[j] = this.add.rectangle(customerContainer.meterBase.x, customer.y - (10 * j), 10, 20, 0xDBD53A).setOrigin(0);
           customerContainer.fullnessMeterBlocks[j].setStrokeStyle(2, 0xB9B42E);
           customerContainer.fullnessMeterBlocks[j].angle = -90;
