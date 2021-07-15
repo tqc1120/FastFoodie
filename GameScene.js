@@ -10,6 +10,7 @@ const gameState = {
     countdownTimer: 1500,
     readyForNextOrder: true,
     customersServedCount: 0,
+
   }
   
   // Gameplay scene
@@ -115,7 +116,13 @@ const gameState = {
       // Generate meals feed to customers
       gameState.currentMeal = this.add.group();
       gameState.currentMeal.fullnessValue = 0;
-  
+      
+      // Push keyboards to serve food
+      gameState.keys = {};
+      gameState.keys.Enter = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+      gameState.keys.A = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+      gameState.keys.S = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+      gameState.keys.D = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
     }
   
     update() {
@@ -138,7 +145,22 @@ const gameState = {
           }
         );
         
-      }    
+      }  
+      
+      //check if the user pressed any key :3
+      if (Phaser.Input.Keyboard.JustDown(gameState.keys.A)) {
+        this.placeFood('Burger', 5);
+        gameState.sfx.placeFood.play();
+        
+      } else if (Phaser.Input.Keyboard.JustDown(gameState.keys.S)){
+        this.placeFood('Fries', 3);
+        gameState.sfx.placeFood.play();
+
+      } else if (Phaser.Input.Keyboard.JustDown(gameState.keys.D)){
+        this.placeFood('Shake', 1);
+        gameState.sfx.placeFood.play();
+
+      } 
     }
   
     /* WAVES */
@@ -210,4 +232,42 @@ const gameState = {
       gameState.customersLeftCount = gameState.totalCustomerCount - gameState.customersServedCount;
       gameState.customerCountText.setText(`Customers left: ${gameState.customersLeftCount}`);
     }
+
+    // Place food with diff keys
+    placeFood(food, fullnessValue) {
+      if (gameState.currentMeal.children.entries.length < 3 && gameState.customerIsReady === true) {
+        let Xposition = gameState.cam.midPoint.x;
+
+        if (food === 'Burger') {
+          gameState.currentMeal.create(Xposition - 90, gameState.cam.midPoint.y, 'Burger').setScale(0.5);
+          
+        } else if (food === 'Fries') {
+          gameState.currentMeal.create(Xposition, gameState.cam.midPoint.y, 'Fries').setScale(0.5);
+          
+        } else if (food === 'Shake') {
+          gameState.currentMeal.create(Xposition + 90, gameState.cam.midPoint.y, 'Shake').setScale(0.5);
+            
+        }
+        
+        gameState.currentMeal.fullnessValue += fullnessValue;
+
+        for (let i = 0; i < gameState.currentMeal.fullnessValue; i++) {
+          if (i < gameState.currentCustomer.fullnessCapacity) { 
+            if (gameState.currentMeal.fullnessValue < gameState.currentCustomer.fullnessCapacity) {
+              gameState.currentCustomer.fullnessMeterBlocks[i].setFillStyle(0xFFFA81);
+  
+            } else if (gameState.currentMeal.fullnessValue === gameState.currentCustomer.fullnessCapacity) {
+              gameState.currentCustomer.fullnessMeterBlocks[i].setFillStyle(0x3ADB40);
+              gameState.currentCustomer.fullnessMeterBlocks[i].setStrokeStyle(2, 0x2EB94E);
+  
+            } else {
+              gameState.currentCustomer.fullnessMeterBlocks[i].setFillStyle(0xDB533A);
+              gameState.currentCustomer.fullnessMeterBlocks[i].setStrokeStyle(2, 0xB92E2E);
+            }
+          }
+        }
+      }
+      gameState.sfx.placeFood.play();
+    }
   }
+
