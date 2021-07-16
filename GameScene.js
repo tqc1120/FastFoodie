@@ -2,15 +2,15 @@ const gameState = {
     score: 0,
     starRating: 5,
     currentWaveCount: 1,
+    customersServedCount: 0,
     customerIsReady: false,
     cam: {},
+    readyForNextOrder: true,
     gameSpeed: 3,
+    serviceCountdown: {},
     currentMusic: {},
     totalWaveCount: 3,
-    countdownTimer: 1500,
-    readyForNextOrder: true,
-    customersServedCount: 0,
-
+    countdownTimer: 1500
   }
   
   // Gameplay scene
@@ -103,7 +103,7 @@ const gameState = {
       gameState.scoreText = this.add.text(gameState.cam.midPoint.x, gameState.scoreTitleText.y + gameState.scoreTitleText.height + 20, gameState.score, { fontSize: '30px', fill: '#000000' }).setOrigin(0.5);
   
       // Display the wave count
-      gameState.waveTitleText = this.add.text(gameState.cam.worldView.right - 20, 30, 'Wave', { fontSize: '64px', fill: '#666666' }).setOrigin(1, 1).setScale(0.25);
+      gameState.waveTitleText = this.add.text(gameState.cam.worldView.right - 20, 30, 'Wave', { fontSize: '64px', fill: '#000000' }).setOrigin(1, 1).setScale(0.25);
       gameState.waveCountText = this.add.text(gameState.cam.worldView.right - 20, 30, gameState.currentWaveCount + '/' + gameState.totalWaveCount, { fontSize: '120px', fill: '#000000' }).setOrigin(1, 0).setScale(0.25);
   
       // Display number of customers left
@@ -123,30 +123,81 @@ const gameState = {
       gameState.keys.A = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
       gameState.keys.S = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
       gameState.keys.D = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+
+      // Stars ratings System
+      gameState.starGroup = this.add.group();
+      this.drawStars();
     }
   
     update() {
       if (gameState.readyForNextOrder === true) {
         gameState.readyForNextOrder = false;
         gameState.customerIsReady = false;
-        gameState.currentCustomer = gameState.customers.children.entries[gameState.customersServedCount];
-        this.add.tween(
-          {
-            targets: gameState.currentCustomer,
-            duration: 1000, 
-            delay: 100, 
-            angle: 90,
-            x: gameState.player.x,
-            ease: 'Power2',
-            onComplete: function() {
-              gameState.customerIsReady = true;
-              gameState.currentCustomer.meterContainer.visible = true; 
-            }
+
+        if (gameState.customersServedCount > 0) {
+          gameState.currentCustomer.meterContainer.visible = false;
+          // Move each customer before current one
+          for (let i = 0; i < gameState.customersServedCount; i++) {
+            gameState.previousCustomer = gameState.customers.children.entries[i];
+            this.tweens.add({
+              targets: gameState.previousCustomer,
+              duration: 750,
+              x: '-=300',
+              angle: 0,
+              ease: 'Power2',
+            });
           }
-        );
+        };
+
+        // Move the new current customer
+        gameState.currentCustomer = gameState.customers.children.entries[gameState.customersServedCount];
+        this.tweens.add({
+          targets: gameState.currentCustomer,
+          duration: 1000, 
+          delay: 100, 
+          angle: 90,
+          x: gameState.player.x,
+          ease: 'Power2',
+          onComplete: () => {
+            gameState.customerIsReady = true;
+            gameState.currentCustomer.meterContainer.visible = true;
+             
+            // If player is too slow, go to next order
+            gameState.serviceCountdown = this.time.delayedCall(gameState.countdownTimer * gameState.gameSpeed, function () {
+              this.moveCustomerLine();
+            }, [], this);
+          }
+        });  
         
+        // Move the upcoming customers 
+        for (let j = 0; j < gameState.customersLeftCount; j++) {
+          let nextCustomer = gameState.customers.children.entries[gameState.customersServedCount + 1 + j];
+          let nextCustomerPositionX = 1024 + (200 * j);
+          this.tweens.add({
+            targets: nextCustomer,
+            x: '-=200',
+            delay: 200,
+            duration: 1500,
+            ease: 'Power2'
+          });
+        }
       }  
       
+      // When customers infront of the chef
+      if (gameState.customerIsReady) {
+          // Count time
+        gameState.currentCustomer.timerMeterBody.width = gameState.currentCustomer.meterBase.width - (gameState.serviceCountdown.getProgress() * gameState.currentCustomer.meterBase.width);
+
+        // Based on the ratio of the time, change color of the timer bar
+        if (gameState.serviceCountdown.getProgress() > .75) {
+          gameState.currentCustomer.timerMeterBody.setFillStyle(0xDB533A);
+        } else if (gameState.serviceCountdown.getProgress() > .25) {
+          gameState.currentCustomer.timerMeterBody.setFillStyle(0xFF9D00);
+        } else {
+          gameState.currentCustomer.timerMeterBody.setFillStyle(0x3ADB40);
+        }
+      }
+
       //check if the user pressed any key :3
       if (Phaser.Input.Keyboard.JustDown(gameState.keys.A)) {
         this.placeFood('Burger', 5);
@@ -160,7 +211,13 @@ const gameState = {
         this.placeFood('Shake', 1);
         gameState.sfx.placeFood.play();
 
-      } 
+      } else if (Phaser.Input.Keyboard.JustDown(gameState.keys.Enter)) {
+        if (gameState.readyForNextOrder === false && gameState.customerIsReady === true) {
+          gameState.serviceCountdown.remove();
+          this.moveCustomerLine();
+          this.updateCustomerCountText();
+        }
+      }
     }
   
     /* WAVES */
@@ -168,6 +225,7 @@ const gameState = {
     generateWave() {
       // Add the total number of customers per wave here:
       gameState.totalCustomerCount = Math.ceil(Math.random() * 10);
+      gameState.customersServedCount = 0;
       
       this.updateCustomerCountText();
 
@@ -179,7 +237,7 @@ const gameState = {
         let customerImageKey = Math.ceil(Math.random() * 5);
   
         // Draw customers here!
-        const customer = this.add.sprite(0, 0, `Customer-${customerImageKey}`).setScale(0.5);
+        let customer = this.add.sprite(0, 0, `Customer-${customerImageKey}`).setScale(0.5);
         customerContainer.add(customer);
 
         // Fullness meter container
@@ -210,7 +268,7 @@ const gameState = {
         customerContainer.timerMeterBody = this.add.rectangle(customerContainer.meterBase.x + 22, customer.y + 1, meterWidth + 4, 12, 0x3ADB40).setOrigin(0);
         customerContainer.timerMeterBody.angle = -90;
         customerContainer.meterContainer.add(customerContainer.timerMeterBody);
-  
+
         // Create container for individual fullness blocks
         customerContainer.fullnessMeterBlocks = [];
   
@@ -228,14 +286,18 @@ const gameState = {
       }
     }
 
+    // Update customer count
     updateCustomerCountText() {
       gameState.customersLeftCount = gameState.totalCustomerCount - gameState.customersServedCount;
       gameState.customerCountText.setText(`Customers left: ${gameState.customersLeftCount}`);
+      gameState.waveCountText.setText(gameState.currentWaveCount + '/' + gameState.totalWaveCount);
     }
 
     // Place food with diff keys
     placeFood(food, fullnessValue) {
       if (gameState.currentMeal.children.entries.length < 3 && gameState.customerIsReady === true) {
+        gameState.sfx.placeFood.play();
+
         let Xposition = (gameState.cam.midPoint.x - 90) + gameState.currentMeal.children.entries.length * 90;
 
         if (food === 'Burger') {
@@ -243,10 +305,10 @@ const gameState = {
           
         } else if (food === 'Fries') {
           gameState.currentMeal.create(Xposition, gameState.cam.midPoint.y, 'Fries').setScale(0.5);
-
+          
         } else if (food === 'Shake') {
           gameState.currentMeal.create(Xposition, gameState.cam.midPoint.y, 'Shake').setScale(0.5);
-            
+          
         }
         
         gameState.currentMeal.fullnessValue += fullnessValue;
@@ -268,5 +330,162 @@ const gameState = {
         }
       }
     }
+
+    // Make customers move forward
+    moveCustomerLine() {
+      gameState.currentCustomer.fullnessValue = gameState.currentMeal.fullnessValue;
+      this.updateStars(game, gameState.currentCustomer.fullnessValue, gameState.currentCustomer.fullnessCapacity)
+      gameState.currentMeal.clear(true);
+      gameState.currentMeal.fullnessValue = 0;
+      gameState.customersServedCount++;
+
+      // If no more customers
+      if (gameState.customersServedCount === gameState.totalCustomerCount) {
+        gameState.currentWaveCount += 1;
+  
+        if (gameState.currentWaveCount > gameState.totalWaveCount) {
+          this.scene.stop('GameScene');
+          this.scene.start('WinScene');
+        } else {
+          this.destroyWave();
+          gameState.gameSpeed -= 1;
+        }
+      } else {
+        gameState.readyForNextOrder = true;
+      }
+    }
+
+    // Generate rating stars on the left corner of the screen
+    drawStars() {
+      gameState.starGroup.clear(true);
+
+      for (let i = 0; i < gameState.starRating; i++) {
+        let spacebetween = i * 50;
+        gameState.starGroup.create(50 + spacebetween, 50, "Star-full").setScale(0.5);
+      }
+    }
+
+    // Updating the star rating during the game process
+    updateStars() {
+      if (gameState.currentMeal.fullnessValue === gameState.currentCustomer.fullnessCapacity) {
+        gameState.currentCustomer.list[0].setTint(0x3ADB40);
+        gameState.sfx.servingCorrect.play();
+  
+        gameState.score += 100;
+        gameState.scoreText.setText(gameState.score);
+  
+        if (gameState.starRating < 5) {
+          gameState.starRating += 1;
+        }
+
+        if (gameState.starRating === 5) {
+          gameState.sfx.fiveStars.play();
+        }
+
+      } else if (gameState.starRating > 1) {
+        if (gameState.fullnessValue > 0) {
+          gameState.starRating -= 1;
+          gameState.currentCustomer.list[0].setTint(0xDBD53A);
+          gameState.sfx.servingIncorrect.play();
+        } else {
+          gameState.currentCustomer.list[0].setTint(0xDB533A);
+          gameState.sfx.servingEmpty.play();
+          gameState.starRating -= 2;
+        }
+  
+        if (gameState.starRating < 1) {
+          this.scene.stop('GameScene');
+          this.scene.start('LoseScene');
+        }
+      } else {
+        this.scene.stop('GameScene');
+        this.scene.start('LoseScene');
+      }
+      this.drawStars();
+    }
+
+    // Destroy wave
+    destroyWave() {
+    gameState.sfx.nextWave.play();
+    gameState.currentCustomer.meterContainer.visible = false;
+
+    // Change text origin after short pause so it's not noticeable to players
+    this.time.delayedCall(750, function () {
+      gameState.waveTitleText.setOrigin(.5, 1);
+      gameState.waveCountText.setOrigin(.5, 0);
+    }, [], game);
+
+    // Center the wave count text
+    this.tweens.add({
+      targets: [gameState.waveTitleText, gameState.waveCountText],
+      x: gameState.cam.midPoint.x,
+      y: gameState.cam.midPoint.y,
+      scaleX: 1,
+      scaleY: 1,
+      duration: 500,
+      delay: 750,
+      ease: 'Power2',
+      onComplete: () => {
+        // Change text origin again after pause
+        this.time.delayedCall(750, function () {
+          gameState.waveTitleText.setOrigin(1, 1);
+          gameState.waveCountText.setOrigin(1, 0);
+        }, [], game);
+
+        // Decenter the wave count text
+        this.tweens.add({
+          targets: [gameState.waveTitleText, gameState.waveCountText],
+          x: gameState.cam.worldView.right - 20,
+          y: 30,
+          scaleX: .25,
+          scaleY: .25,
+          duration: 500,
+          delay: 750,
+          ease: 'Power2'
+        });
+      }
+    });
+
+    for (let i = 0; i < gameState.customersServedCount; i++) {
+
+      // Move each customer forward and rotate them
+      this.tweens.add({
+        targets: gameState.customers.children.entries[i],
+        x: '-=300',
+        angle: 0,
+        duration: 750,
+        ease: 'Power2',
+        onComplete: () => {
+
+          // Move the customers offscreen
+          this.tweens.add({
+            targets: gameState.customers.children.entries[i],
+            x: '-=900',
+            duration: 1200,
+            ease: 'Power2',
+            onComplete: () => {
+
+              // Remove customers from the group
+              gameState.customers.clear(true);
+              this.generateWave();
+
+              gameState.readyForNextOrder = true;
+            }
+          });
+        }
+      });
+    }
+    this.drawStars();
   }
+
+  // Restart the game
+  restartGame() {
+    gameState.score = 0;
+    gameState.starRating = 5;
+    gameState.currentWaveCount = 1;
+    gameState.customersServedCount = 0;
+    gameState.readyForNextOrder = true;
+    gameState.gameSpeed = 3;
+  }   
+}
 
